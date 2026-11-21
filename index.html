@@ -1954,3 +1954,385 @@
         }
       }
     }
+// ================= [SECTION 11: TOUCH, KEYBOARD & MOUSE CONTROLS] =================
+    const INPUT_STATE = {
+      moveX: 0,           // -1 (влево) .. +1 (вправо)
+      moveZ: 0,           // -1 (вперёд по взгляду) .. +1 (назад)
+      yaw: 0,             // Горизонтальный поворот камеры
+      pitch: -0.04,       // Вертикальный наклон камеры
+      keys: {},
+      joystickTouchId: null,
+      lookTouchId: null,
+      lastLookX: 0,
+      lastLookY: 0,
+      isMouseLooking: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    function initControls() {
+      const joystickZone = document.getElementById("joystick-zone");
+      const joystickKnob = document.getElementById("joystick-knob");
+      const lookZone = document.getElementById("look-zone");
+      const maxRadius = 38;
+
+      function updateJoystickFromPoint(clientX, clientY) {
+        const rect = joystickZone.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        let dx = clientX - centerX;
+        let dy = clientY - centerY;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > maxRadius) {
+          dx = (dx / dist) * maxRadius;
+          dy = (dy / dist) * maxRadius;
+        }
+
+        joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+        INPUT_STATE.moveX = dx / maxRadius;
+        INPUT_STATE.moveZ = dy / maxRadius; // Вперёд по стику = отрицательный Y экрана
+      }
+
+      function resetJoystick() {
+        INPUT_STATE.joystickTouchId = null;
+        INPUT_STATE.moveX = 0;
+        INPUT_STATE.moveZ = 0;
+        joystickKnob.style.transform = "translate(0px, 0px)";
+      }
+
+      joystickZone.addEventListener("touchstart", (e) => {
+        if (!GAME_STATE.started) return;
+        e.preventDefault();
+        const touch = e.changedTouches[0];
+        INPUT_STATE.joystickTouchId = touch.identifier;
+        updateJoystickFromPoint(touch.clientX, touch.clientY);
+      }, { passive: false });
+
+      joystickZone.addEventListener("touchmove", (e) => {
+        if (!GAME_STATE.started || INPUT_STATE.joystickTouchId === null) return;
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          if (t.identifier === INPUT_STATE.joystickTouchId) {
+            updateJoystickFromPoint(t.clientX, t.clientY);
+            break;
+          }
+        }
+      }, { passive: false });
+
+      joystickZone.addEventListener("touchend", (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === INPUT_STATE.joystickTouchId) {
+            resetJoystick();
+            break;
+          }
+        }
+      });
+
+      joystickZone.addEventListener("touchcancel", resetJoystick);
+
+      // Свайп для вращения камеры на правой части экрана телефона
+      lookZone.addEventListener("touchstart", (e) => {
+        if (!GAME_STATE.started) return;
+        const touch = e.changedTouches[0];
+        if (INPUT_STATE.lookTouchId === null) {
+          INPUT_STATE.lookTouchId = touch.identifier;
+          INPUT_STATE.lastLookX = touch.clientX;
+          INPUT_STATE.lastLookY = touch.clientY;
+        }
+      }, { passive: false });
+
+      lookZone.addEventListener("touchmove", (e) => {
+        if (!GAME_STATE.started || INPUT_STATE.lookTouchId === null) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          if (t.identifier === INPUT_STATE.lookTouchId) {
+            const dx = t.clientX - INPUT_STATE.lastLookX;
+            const dy = t.clientY - INPUT_STATE.lastLookY;
+            INPUT_STATE.lastLookX = t.clientX;
+            INPUT_STATE.lastLookY = t.clientY;
+
+            INPUT_STATE.yaw -= dx * ROOM_CONFIG.lookSensitivity;
+            INPUT_STATE.pitch -= dy * ROOM_CONFIG.lookSensitivity;
+            INPUT_STATE.pitch = Math.max(-1.25, Math.min(1.25, INPUT_STATE.pitch));
+            break;
+          }
+        }
+      }, { passive: false });
+
+      function releaseLookTouch(e) {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === INPUT_STATE.lookTouchId) {
+            INPUT_STATE.lookTouchId = null;
+            break;
+          }
+        }
+      }
+
+      lookZone.addEventListener("touchend", releaseLookTouch);
+      lookZone.addEventListener("touchcancel", releaseLookTouch);
+
+      // Управление мышью и клавиатурой (удобно при проверке на ПК)
+      canvas.addEventListener("mousedown", (e) => {
+        if (!GAME_STATE.started) return;
+        INPUT_STATE.isMouseLooking = true;
+        INPUT_STATE.lastMouseX = e.clientX;
+        INPUT_STATE.lastMouseY = e.clientY;
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        if (!INPUT_STATE.isMouseLooking) return;
+        const dx = e.clientX - INPUT_STATE.lastMouseX;
+        const dy = e.clientY - INPUT_STATE.lastMouseY;
+        INPUT_STATE.lastMouseX = e.clientX;
+        INPUT_STATE.lastMouseY = e.clientY;
+
+        INPUT_STATE.yaw -= dx * 0.0045;
+        INPUT_STATE.pitch -= dy * 0.0045;
+        INPUT_STATE.pitch = Math.max(-1.25, Math.min(1.25, INPUT_STATE.pitch));
+      });
+
+      window.addEventListener("mouseup", () => {
+        INPUT_STATE.isMouseLooking = false;
+      });
+
+      window.addEventListener("keydown", (e) => {
+        INPUT_STATE.keys[e.code] = true;
+        if (!GAME_STATE.started) return;
+
+        if (e.code === "KeyE") {
+          triggerCurrentInteraction();
+        } else if (e.code === "KeyQ") {
+          dropHeldItem();
+        } else if (e.code === "Escape") {
+          closeFridgeModal();
+        }
+      });
+
+      window.addEventListener("keyup", (e) => {
+        INPUT_STATE.keys[e.code] = false;
+      });
+
+      // Кнопки HUD
+      document.getElementById("btn-interact").addEventListener("click", triggerCurrentInteraction);
+      document.getElementById("btn-drop").addEventListener("click", dropHeldItem);
+      document.getElementById("btn-close-fridge").addEventListener("click", closeFridgeModal);
+
+      document.getElementById("btn-start").addEventListener("click", async () => {
+        GAME_STATE.started = true;
+        document.getElementById("start-screen").classList.add("hidden");
+
+        // Попытка включить горизонтальный режим и полноэкранный вид на мобильном браузере
+        try {
+          if (document.documentElement.requestFullscreen && window.innerWidth < 900) {
+            await document.documentElement.requestFullscreen();
+          }
+          if (screen.orientation && screen.orientation.lock) {
+            await screen.orientation.lock("landscape");
+          }
+        } catch (err) {
+          // Браузер может блокировать lock без жеста или в обычном окне — это нормально
+        }
+
+        showToast("Смена началась! Иди к чёрному холодильнику за продуктами");
+      });
+    }
+
+    function dropHeldItem() {
+      if (!GAME_STATE.heldItem) {
+        showToast("В руках и так пусто");
+        return;
+      }
+      GAME_STATE.heldItem = null;
+      updateHudUI();
+      showToast("Выбросил предмет из рук");
+    }
+
+    // ================= [SECTION 12: COLLISION, MOVEMENT & RAYCAST TARGETING] =================
+    const raycaster = new THREE.Raycaster();
+    const screenCenter = new THREE.Vector2(0, 0);
+
+    function resolveCircleBoxCollision(x, z, radius, box) {
+      const closestX = Math.max(box.minX, Math.min(x, box.maxX));
+      const closestZ = Math.max(box.minZ, Math.min(z, box.maxZ));
+
+      const dx = x - closestX;
+      const dz = z - closestZ;
+      const distSq = dx * dx + dz * dz;
+
+      if (distSq < radius * radius) {
+        const dist = Math.sqrt(distSq);
+        if (dist > 0.0001) {
+          const overlap = radius - dist;
+          return {
+            x: x + (dx / dist) * overlap,
+            z: z + (dz / dist) * overlap
+          };
+        } else {
+          // Если центр внутри бокса — выталкиваем к ближайшей грани
+          const leftPen = Math.abs(x - box.minX);
+          const rightPen = Math.abs(box.maxX - x);
+          const topPen = Math.abs(z - box.minZ);
+          const botPen = Math.abs(box.maxZ - z);
+          const minPen = Math.min(leftPen, rightPen, topPen, botPen);
+
+          if (minPen === leftPen) return { x: box.minX - radius, z };
+          if (minPen === rightPen) return { x: box.maxX + radius, z };
+          if (minPen === topPen) return { x, z: box.minZ - radius };
+          return { x, z: box.maxZ + radius };
+        }
+      }
+
+      return { x, z };
+    }
+
+    function updatePlayerMovement(dt) {
+      if (!GAME_STATE.started) return;
+
+      // Клавиатурный ввод (WASD / Стрелки) поверх сенсорного стика
+      let keyX = 0;
+      let keyZ = 0;
+      if (INPUT_STATE.keys["KeyA"] || INPUT_STATE.keys["ArrowLeft"]) keyX -= 1;
+      if (INPUT_STATE.keys["KeyD"] || INPUT_STATE.keys["ArrowRight"]) keyX += 1;
+      if (INPUT_STATE.keys["KeyW"] || INPUT_STATE.keys["ArrowUp"]) keyZ -= 1;
+      if (INPUT_STATE.keys["KeyS"] || INPUT_STATE.keys["ArrowDown"]) keyZ += 1;
+
+      // Поворот камеры стрелками влево/вправо на ПК
+      if (INPUT_STATE.keys["ArrowLeft"]) INPUT_STATE.yaw += 1.6 * dt;
+      if (INPUT_STATE.keys["ArrowRight"]) INPUT_STATE.yaw -= 1.6 * dt;
+
+      let inputX = Math.abs(INPUT_STATE.moveX) > 0.05 ? INPUT_STATE.moveX : keyX;
+      let inputZ = Math.abs(INPUT_STATE.moveZ) > 0.05 ? INPUT_STATE.moveZ : keyZ;
+
+      const mag = Math.hypot(inputX, inputZ);
+      if (mag > 1) {
+        inputX /= mag;
+        inputZ /= mag;
+      }
+
+      camera.rotation.y = INPUT_STATE.yaw;
+      camera.rotation.x = INPUT_STATE.pitch;
+
+      // Вектор направления взгляда по горизонтали
+      const forwardX = -Math.sin(INPUT_STATE.yaw);
+      const forwardZ = -Math.cos(INPUT_STATE.yaw);
+      const rightX = Math.cos(INPUT_STATE.yaw);
+      const rightZ = -Math.sin(INPUT_STATE.yaw);
+
+      // inputZ < 0 означает движение вперёд
+      const wishX = rightX * inputX + forwardX * (-inputZ);
+      const wishZ = rightZ * inputX + forwardZ * (-inputZ);
+
+      let nextX = camera.position.x + wishX * ROOM_CONFIG.moveSpeed * dt;
+      let nextZ = camera.position.z + wishZ * ROOM_CONFIG.moveSpeed * dt;
+
+      // Жёсткие границы кухни (дальше стен и проёма игрок выйти не может)
+      const r = ROOM_CONFIG.playerRadius;
+      const boundX = ROOM_CONFIG.width / 2 - r;
+      const boundZ = ROOM_CONFIG.length / 2 - r;
+
+      nextX = Math.max(-boundX, Math.min(boundX, nextX));
+      nextZ = Math.max(-boundZ, Math.min(boundZ, nextZ));
+
+      // Коллизии с мебелью и техникой
+      for (let i = 0; i < GAME_STATE.colliders.length; i++) {
+        const resolved = resolveCircleBoxCollision(nextX, nextZ, r, GAME_STATE.colliders[i]);
+        nextX = resolved.x;
+        nextZ = resolved.z;
+      }
+
+      camera.position.x = nextX;
+      camera.position.z = nextZ;
+
+      // Лёгкий эффект шагов при ходьбе
+      if (mag > 0.1) {
+        const bob = Math.sin(performance.now() * 0.011) * 0.018;
+        camera.position.y = ROOM_CONFIG.playerHeight + bob;
+      } else {
+        camera.position.y = THREE.MathUtils.lerp(camera.position.y, ROOM_CONFIG.playerHeight, 0.2);
+      }
+    }
+
+    function updateRaycastTarget() {
+      raycaster.setFromCamera(screenCenter, camera);
+      const hits = raycaster.intersectObjects(GAME_STATE.interactiveObjects, false);
+
+      const crosshair = document.getElementById("crosshair");
+      const prompt = document.getElementById("interaction-prompt");
+
+      let found = null;
+      for (let i = 0; i < hits.length; i++) {
+        if (hits[i].distance <= ROOM_CONFIG.interactDistance) {
+          found = hits[i].object;
+          break;
+        }
+      }
+
+      GAME_STATE.interactTarget = found;
+
+      if (found) {
+        crosshair.classList.add("active");
+        prompt.textContent = `${found.userData.interactTitle} — [ДЕЙСТВИЕ]`;
+        prompt.classList.add("visible");
+      } else {
+        crosshair.classList.remove("active");
+        prompt.classList.remove("visible");
+      }
+    }
+
+    function triggerCurrentInteraction() {
+      if (!GAME_STATE.started) return;
+
+      // Если игрок стоит рядом со стойкой продажи у выхода (даже если смотрит чуть вбок) — тоже удобно сдать бургер
+      const saleDist = Math.hypot(camera.position.x - (-0.25), camera.position.z - (ROOM_CONFIG.length / 2 - 0.52));
+      if (!GAME_STATE.interactTarget && saleDist < 1.35 && GAME_STATE.heldItem === "assembled_burger") {
+        handleSaleInteraction();
+        return;
+      }
+
+      if (!GAME_STATE.interactTarget || typeof GAME_STATE.interactTarget.userData.onInteract !== "function") {
+        showToast("Наведи прицел на холодильник, плиту, доску или зону у выхода");
+        return;
+      }
+
+      GAME_STATE.interactTarget.userData.onInteract();
+    }
+
+    // ================= [SECTION 13: MAIN ANIMATION LOOP & BOOTSTRAP] =================
+    let lastTime = performance.now();
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+
+      updatePlayerMovement(dt);
+      updateRaycastTarget();
+      updateCookingSlots(dt);
+
+      // Мягкая пульсация зоны продажи у выхода, когда в руках готовый бургер
+      if (saleZoneVisuals.pad) {
+        const readyToSell = GAME_STATE.heldItem === "assembled_burger";
+        saleZoneVisuals.pad.material.color.setHex(readyToSell ? 0xff9f1c : 0x2ec4b6);
+        saleZoneVisuals.pad.material.opacity = readyToSell
+          ? 0.28 + Math.sin(now * 0.007) * 0.12
+          : 0.18;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    function bootGame() {
+      buildKitchenArchitecture();
+      buildKitchenCabinetsAndAppliances();
+      buildLeftSideAndSaleZone();
+      initControls();
+      generateNewOrder();
+      updateHudUI();
+      requestAnimationFrame(animate);
+    }
+
+    bootGame();
