@@ -1112,3 +1112,845 @@
   </script>
 </body>
 </html>
+// ================= [SECTION 08: KITCHEN CABINETS, STOVE & BLACK FRIDGE] =================
+    const stoveVisuals = [null, null];
+    const assemblyVisualGroup = new THREE.Group();
+    const saleZoneVisuals = { ring: null, pad: null };
+
+    function buildKitchenCabinetsAndAppliances() {
+      const group = new THREE.Group();
+      group.name = "KitchenCabinetsAndAppliances";
+
+      const halfW = ROOM_CONFIG.width / 2;
+      const counterDepth = 0.60;
+      const counterHeight = 0.86;
+      const rightX = halfW - counterDepth / 2;
+
+      const whiteCabinetMat = new THREE.MeshStandardMaterial({
+        color: 0xd8d5cf,
+        roughness: 0.45,
+        metalness: 0.05
+      });
+
+      const darkWoodMat = new THREE.MeshStandardMaterial({
+        map: TextureFactory.createDarkWoodTexture(),
+        roughness: 0.55
+      });
+
+      const worktopMat = new THREE.MeshStandardMaterial({
+        color: 0x38332f,
+        roughness: 0.38,
+        metalness: 0.12
+      });
+
+      const handleMat = new THREE.MeshStandardMaterial({
+        color: 0x181a1d,
+        roughness: 0.3,
+        metalness: 0.75
+      });
+
+      const backsplashMat = new THREE.MeshStandardMaterial({
+        map: TextureFactory.createMarbleBacksplashTexture(),
+        roughness: 0.32,
+        metalness: 0.08
+      });
+
+      // 1. Основная нижняя тумба вдоль правой стены (от Z = -1.55 до Z = +0.85)
+      const mainBaseLen = 2.40;
+      const mainBaseZ = -0.35;
+
+      const baseBody = new THREE.Mesh(
+        new THREE.BoxGeometry(counterDepth, counterHeight - 0.04, mainBaseLen),
+        whiteCabinetMat
+      );
+      baseBody.position.set(rightX, (counterHeight - 0.04) / 2, mainBaseZ);
+      baseBody.castShadow = true;
+      baseBody.receiveShadow = true;
+      group.add(baseBody);
+
+      // Столешница над нижней тумбой
+      const worktop = new THREE.Mesh(
+        new THREE.BoxGeometry(counterDepth + 0.03, 0.04, mainBaseLen + 0.03),
+        worktopMat
+      );
+      worktop.position.set(rightX - 0.01, counterHeight - 0.02, mainBaseZ);
+      worktop.castShadow = true;
+      worktop.receiveShadow = true;
+      group.add(worktop);
+
+      // Чёрные ручки на нижних шкафах и ящиках
+      for (let i = 0; i < 4; i++) {
+        const zPos = -1.25 + i * 0.56;
+        const handle = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.016, 0.16), handleMat);
+        handle.position.set(rightX - counterDepth / 2 - 0.012, counterHeight - 0.14, zPos);
+        group.add(handle);
+      }
+
+      // Коллайдер нижней тумбы
+      addBoxCollider(rightX, mainBaseZ, counterDepth + 0.04, mainBaseLen, "MainCounter");
+
+      // 2. Мраморный фартук над столешницей
+      const backsplash = new THREE.Mesh(
+        new THREE.BoxGeometry(0.02, 0.58, mainBaseLen),
+        backsplashMat
+      );
+      backsplash.position.set(halfW - 0.01, counterHeight + 0.29, mainBaseZ);
+      backsplash.receiveShadow = true;
+      group.add(backsplash);
+
+      // 3. Верхние навесные шкафы (светлые фасады + тёмная боковина)
+      const upperHeight = 0.88;
+      const upperY = 2.12;
+      const upperBody = new THREE.Mesh(
+        new THREE.BoxGeometry(0.36, upperHeight, mainBaseLen + 0.25),
+        whiteCabinetMat
+      );
+      upperBody.position.set(halfW - 0.18, upperY, -0.45);
+      upperBody.castShadow = true;
+      group.add(upperBody);
+
+      // 4. Варочная панель (плита) на столешнице (Z = -0.95)
+      const stoveGroup = new THREE.Group();
+      const stoveZ = -0.95;
+      stoveGroup.position.set(rightX - 0.02, counterHeight + 0.004, stoveZ);
+
+      const glassTop = new THREE.Mesh(
+        new THREE.BoxGeometry(0.46, 0.008, 0.54),
+        new THREE.MeshStandardMaterial({ color: 0x111214, roughness: 0.12, metalness: 0.4 })
+      );
+      stoveGroup.add(glassTop);
+
+      // Две интерактивные конфорки для жарки котлет
+      const burnerOffsetsZ = [-0.13, 0.13];
+      burnerOffsetsZ.forEach((bz, idx) => {
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(0.055, 0.082, 24),
+          new THREE.MeshBasicMaterial({ color: 0x444444, side: THREE.DoubleSide })
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(-0.04, 0.006, bz);
+        stoveGroup.add(ring);
+
+        // Сковорода на конфорке
+        const pan = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.095, 0.085, 0.025, 20),
+          new THREE.MeshStandardMaterial({ color: 0x26292e, roughness: 0.35, metalness: 0.7 })
+        );
+        pan.position.set(-0.04, 0.018, bz);
+        pan.castShadow = true;
+        stoveGroup.add(pan);
+
+        // 3D-котлета на сковороде (появляется при постановке на плиту)
+        const pattyMesh = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.062, 0.065, 0.022, 18),
+          new THREE.MeshStandardMaterial({ color: 0xc97a63, roughness: 0.7 })
+        );
+        pattyMesh.position.set(-0.04, 0.038, bz);
+        pattyMesh.visible = false;
+        stoveGroup.add(pattyMesh);
+
+        stoveVisuals[idx] = { ring, pan, pattyMesh };
+
+        // Интерактивный хитбокс конфорки
+        const hitBox = new THREE.Mesh(
+          new THREE.BoxGeometry(0.24, 0.14, 0.24),
+          new THREE.MeshBasicMaterial({ visible: false })
+        );
+        hitBox.position.set(-0.04, 0.07, bz);
+        stoveGroup.add(hitBox);
+
+        registerInteractive(
+          hitBox,
+          "stove",
+          `Плита (конфорка ${idx + 1})`,
+          () => handleStoveInteraction(idx)
+        );
+      });
+
+      group.add(stoveGroup);
+
+      // 5. Мойка и чёрный смеситель ближе к центру гарнитура (Z = 0.05)
+      const sinkMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.42, 0.015, 0.48),
+        new THREE.MeshStandardMaterial({ color: 0x18191b, roughness: 0.25, metalness: 0.5 })
+      );
+      sinkMesh.position.set(rightX - 0.02, counterHeight + 0.005, 0.05);
+      group.add(sinkMesh);
+
+      const faucetStem = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.012, 0.014, 0.24, 12),
+        handleMat
+      );
+      faucetStem.position.set(rightX + 0.16, counterHeight + 0.12, 0.05);
+      group.add(faucetStem);
+
+      const faucetSpout = new THREE.Mesh(
+        new THREE.BoxGeometry(0.16, 0.015, 0.015),
+        handleMat
+      );
+      faucetSpout.position.set(rightX + 0.08, counterHeight + 0.24, 0.05);
+      group.add(faucetSpout);
+
+      // 6. Разделочная доска для сборки бургера (Z = 0.58)
+      const boardMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.28, 0.018, 0.34),
+        new THREE.MeshStandardMaterial({ color: 0x8d6748, roughness: 0.65 })
+      );
+      boardMesh.position.set(rightX - 0.05, counterHeight + 0.01, 0.58);
+      boardMesh.castShadow = true;
+      boardMesh.receiveShadow = true;
+      group.add(boardMesh);
+
+      assemblyVisualGroup.position.set(rightX - 0.05, counterHeight + 0.025, 0.58);
+      group.add(assemblyVisualGroup);
+
+      const boardHit = new THREE.Mesh(
+        new THREE.BoxGeometry(0.34, 0.18, 0.40),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      boardHit.position.set(rightX - 0.05, counterHeight + 0.09, 0.58);
+      group.add(boardHit);
+      registerInteractive(boardHit, "board", "Доска сборки бургера", handleBoardInteraction);
+
+      // 7. Барный выступ слева от основной тумбы (Z = +0.92, выступает влево к X = 0.42)
+      const barLen = 0.62;
+      const barWidth = 0.88;
+      const barX = halfW - barLen / 2;
+      const barZ = 1.02;
+
+      const barBase = new THREE.Mesh(
+        new THREE.BoxGeometry(barLen, counterHeight - 0.04, barWidth),
+        whiteCabinetMat
+      );
+      barBase.position.set(barX, (counterHeight - 0.04) / 2, barZ);
+      barBase.castShadow = true;
+      barBase.receiveShadow = true;
+      group.add(barBase);
+
+      const barTop = new THREE.Mesh(
+        new THREE.BoxGeometry(barLen + 0.04, 0.04, barWidth + 0.04),
+        worktopMat
+      );
+      barTop.position.set(barX - 0.02, counterHeight - 0.02, barZ);
+      barTop.castShadow = true;
+      barTop.receiveShadow = true;
+      group.add(barTop);
+
+      addBoxCollider(barX, barZ, barLen + 0.04, barWidth + 0.04, "BarCounter");
+
+      // Мультиварка и стеклянный электрочайник на барном выступе как на фото
+      const multicooker = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.14, 0.15, 0.24, 20),
+        new THREE.MeshStandardMaterial({ color: 0xb8bec4, roughness: 0.25, metalness: 0.8 })
+      );
+      multicooker.position.set(barX + 0.05, counterHeight + 0.12, barZ - 0.20);
+      multicooker.castShadow = true;
+      group.add(multicooker);
+
+      const kettle = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.075, 0.095, 0.19, 18),
+        new THREE.MeshStandardMaterial({
+          color: 0xdbeafe,
+          transparent: true,
+          opacity: 0.48,
+          roughness: 0.1
+        })
+      );
+      kettle.position.set(barX - 0.12, counterHeight + 0.095, barZ + 0.18);
+      group.add(kettle);
+
+      // 8. Тёмная колонна со встроенной техникой и ЧЁРНЫЙ ХОЛОДИЛЬНИК/МОРОЗИЛЬНИК в конце справа (Z = -2.05)
+      const fridgeGroup = new THREE.Group();
+      const fridgeX = halfW - 0.34;
+      const fridgeZ = -2.08;
+      const fridgeW = 0.68;
+      const fridgeD = 0.66;
+      const fridgeH = 1.98;
+
+      const blackFridgeMat = new THREE.MeshStandardMaterial({
+        color: 0x15171a,
+        roughness: 0.28,
+        metalness: 0.55
+      });
+
+      const chromeHandleMat = new THREE.MeshStandardMaterial({
+        color: 0x8d949e,
+        roughness: 0.25,
+        metalness: 0.85
+      });
+
+      // Нижняя морозильная камера + верхняя холодильная камера
+      const freezerMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(fridgeW, 0.62, fridgeD),
+        blackFridgeMat
+      );
+      freezerMesh.position.set(fridgeX, 0.31, fridgeZ);
+      freezerMesh.castShadow = true;
+      freezerMesh.receiveShadow = true;
+      fridgeGroup.add(freezerMesh);
+
+      const fridgeMainMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(fridgeW, 1.34, fridgeD),
+        blackFridgeMat
+      );
+      fridgeMainMesh.position.set(fridgeX, 0.63 + 0.67, fridgeZ);
+      fridgeMainMesh.castShadow = true;
+      fridgeMainMesh.receiveShadow = true;
+      fridgeGroup.add(fridgeMainMesh);
+
+      // Разделительный зазор и вертикальные ручки
+      const handleFridge = new THREE.Mesh(
+        new THREE.BoxGeometry(0.02, 0.36, 0.025),
+        chromeHandleMat
+      );
+      handleFridge.position.set(fridgeX - fridgeW / 2 - 0.015, 1.05, fridgeZ + 0.18);
+      fridgeGroup.add(handleFridge);
+
+      const handleFreezer = new THREE.Mesh(
+        new THREE.BoxGeometry(0.02, 0.24, 0.025),
+        chromeHandleMat
+      );
+      handleFreezer.position.set(fridgeX - fridgeW / 2 - 0.015, 0.38, fridgeZ + 0.18);
+      fridgeGroup.add(handleFreezer);
+
+      // Тёмный шкаф-колонна рядом с холодильником (Z = -1.62)
+      const tallPantry = new THREE.Mesh(
+        new THREE.BoxGeometry(0.62, ROOM_CONFIG.height - 0.02, 0.32),
+        darkWoodMat
+      );
+      tallPantry.position.set(halfW - 0.31, (ROOM_CONFIG.height - 0.02) / 2, -1.62);
+      tallPantry.castShadow = true;
+      fridgeGroup.add(tallPantry);
+
+      addBoxCollider(fridgeX, fridgeZ, fridgeW, fridgeD, "BlackFridge");
+      addBoxCollider(halfW - 0.31, -1.62, 0.62, 0.32, "TallPantry");
+
+      // Интерактивный меш для открытия холодильника / морозильника
+      const fridgeHit = new THREE.Mesh(
+        new THREE.BoxGeometry(fridgeW + 0.12, fridgeH, fridgeD + 0.12),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      fridgeHit.position.set(fridgeX, fridgeH / 2, fridgeZ);
+      fridgeGroup.add(fridgeHit);
+
+      registerInteractive(
+        fridgeHit,
+        "fridge",
+        "Чёрный холодильник / морозильник",
+        openFridgeModal
+      );
+
+      group.add(fridgeGroup);
+      scene.add(group);
+    }
+
+    // ================= [SECTION 09: DINING TABLE, SOFA, TV & EXIT SALE ZONE] =================
+    function buildLeftSideAndSaleZone() {
+      const group = new THREE.Group();
+      group.name = "LeftSideAndSaleZone";
+
+      const halfW = ROOM_CONFIG.width / 2;
+      const halfL = ROOM_CONFIG.length / 2;
+
+      // 1. Обеденный стол слева (X = -0.92, Z = -1.25)
+      const tableX = -0.92;
+      const tableZ = -1.25;
+      const tableW = 0.82;
+      const tableL = 1.18;
+      const tableH = 0.75;
+
+      const tableTop = new THREE.Mesh(
+        new THREE.BoxGeometry(tableW, 0.035, tableL),
+        new THREE.MeshStandardMaterial({ color: 0x543c2b, roughness: 0.5 })
+      );
+      tableTop.position.set(tableX, tableH, tableZ);
+      tableTop.castShadow = true;
+      tableTop.receiveShadow = true;
+      group.add(tableTop);
+
+      const legMat = new THREE.MeshStandardMaterial({ color: 0x181a1d, roughness: 0.4, metalness: 0.6 });
+      const legOffsets = [
+        [-tableW / 2 + 0.06, -tableL / 2 + 0.06],
+        [tableW / 2 - 0.06, -tableL / 2 + 0.06],
+        [-tableW / 2 + 0.06, tableL / 2 - 0.06],
+        [tableW / 2 - 0.06, tableL / 2 - 0.06]
+      ];
+      legOffsets.forEach(([lx, lz]) => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.03, tableH - 0.02, 0.03), legMat);
+        leg.position.set(tableX + lx, (tableH - 0.02) / 2, tableZ + lz);
+        leg.castShadow = true;
+        group.add(leg);
+      });
+
+      addBoxCollider(tableX, tableZ, tableW, tableL, "DiningTable");
+
+      // 2. Четыре стула с терракотово-оранжевой обивкой
+      const chairFabricMat = new THREE.MeshStandardMaterial({ color: 0xb8623d, roughness: 0.85 });
+      const chairCoords = [
+        { x: tableX - 0.50, z: tableZ - 0.28, rotY: Math.PI / 2 },
+        { x: tableX - 0.50, z: tableZ + 0.28, rotY: Math.PI / 2 },
+        { x: tableX + 0.50, z: tableZ - 0.28, rotY: -Math.PI / 2 },
+        { x: tableX + 0.50, z: tableZ + 0.28, rotY: -Math.PI / 2 }
+      ];
+
+      chairCoords.forEach((c) => {
+        const chair = new THREE.Group();
+        chair.position.set(c.x, 0, c.z);
+        chair.rotation.y = c.rotY;
+
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 0.42), chairFabricMat);
+        seat.position.y = 0.45;
+        seat.castShadow = true;
+        chair.add(seat);
+
+        const backrest = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.36, 0.06), chairFabricMat);
+        backrest.position.set(0, 0.65, -0.18);
+        backrest.castShadow = true;
+        chair.add(backrest);
+
+        [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]].forEach(([cx, cz]) => {
+          const cLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.01, 0.43, 8), legMat);
+          cLeg.position.set(cx, 0.215, cz);
+          chair.add(cLeg);
+        });
+
+        group.add(chair);
+        addBoxCollider(c.x, c.z, 0.42, 0.42, "DiningChair");
+      });
+
+      // 3. Тёмный диван в углу у выхода (справа от дверного проёма на 2-м фото, X = +0.92, Z = +2.05)
+      const sofaX = 0.92;
+      const sofaZ = 2.05;
+      const sofaMat = new THREE.MeshStandardMaterial({ color: 0x262322, roughness: 0.9 });
+
+      const sofaBase = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.38, 0.85), sofaMat);
+      sofaBase.position.set(sofaX, 0.19, sofaZ);
+      sofaBase.castShadow = true;
+      sofaBase.receiveShadow = true;
+      group.add(sofaBase);
+
+      const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.52, 0.22), sofaMat);
+      sofaBack.position.set(sofaX, 0.58, sofaZ + 0.31);
+      sofaBack.rotation.x = -0.14;
+      sofaBack.castShadow = true;
+      group.add(sofaBack);
+
+      const sofaArmL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.50, 0.85), sofaMat);
+      sofaArmL.position.set(sofaX - 0.50, 0.35, sofaZ);
+      group.add(sofaArmL);
+
+      const sofaArmR = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.50, 0.85), sofaMat);
+      sofaArmR.position.set(sofaX + 0.50, 0.35, sofaZ);
+      group.add(sofaArmR);
+
+      addBoxCollider(sofaX, sofaZ, 1.15, 0.85, "CornerSofa");
+
+      // 4. Телевизор на стене над выступом столешницы
+      const tvGroup = new THREE.Group();
+      tvGroup.position.set(halfW - 0.03, 1.72, 1.38);
+      tvGroup.rotation.y = -Math.PI / 2 - 0.12;
+
+      const tvFrame = new THREE.Mesh(
+        new THREE.BoxGeometry(0.76, 0.44, 0.035),
+        new THREE.MeshStandardMaterial({ color: 0x111214, roughness: 0.3, metalness: 0.6 })
+      );
+      tvGroup.add(tvFrame);
+
+      const tvScreen = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.71, 0.39),
+        new THREE.MeshStandardMaterial({
+          color: 0x1b2432,
+          emissive: 0x263852,
+          emissiveIntensity: 0.45,
+          roughness: 0.15
+        })
+      );
+      tvScreen.position.z = -0.019;
+      tvScreen.rotation.y = Math.PI;
+      tvGroup.add(tvScreen);
+
+      group.add(tvGroup);
+
+      // 5. ЗОНА ПРОДАЖИ БУРГЕРОВ У ВЫХОДА (рядом с дверным проёмом, X = -0.25, Z = +2.15)
+      const saleX = -0.25;
+      const saleZ = halfL - 0.52;
+
+      const saleMat = new THREE.MeshBasicMaterial({
+        color: 0x2ec4b6,
+        transparent: true,
+        opacity: 0.24,
+        side: THREE.DoubleSide
+      });
+      const salePad = new THREE.Mesh(new THREE.CircleGeometry(0.46, 32), saleMat);
+      salePad.rotation.x = -Math.PI / 2;
+      salePad.position.set(saleX, 0.004, saleZ);
+      group.add(salePad);
+
+      const saleRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.43, 0.48, 32),
+        new THREE.MeshBasicMaterial({ color: 0x2ec4b6, side: THREE.DoubleSide })
+      );
+      saleRing.rotation.x = -Math.PI / 2;
+      saleRing.position.set(saleX, 0.006, saleZ);
+      group.add(saleRing);
+
+      saleZoneVisuals.pad = salePad;
+      saleZoneVisuals.ring = saleRing;
+
+      const saleHit = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.52, 0.52, 1.4, 16),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      saleHit.position.set(saleX, 0.7, saleZ);
+      group.add(saleHit);
+
+      registerInteractive(
+        saleHit,
+        "sale",
+        "Стойка выдачи и продажи у выхода",
+        handleSaleInteraction
+      );
+
+      scene.add(group);
+    }
+
+    // ================= [SECTION 10: BURGER SYSTEM, COOKING & ORDERS] =================
+    const INGREDIENTS_CATALOG = {
+      bun_bottom: {
+        id: "bun_bottom",
+        name: "Нижняя булка",
+        icon: "🥯",
+        zone: "Холодильник",
+        color: 0xd99b52
+      },
+      patty_raw: {
+        id: "patty_raw",
+        name: "Сырая котлета",
+        icon: "🥩",
+        zone: "Морозильник",
+        color: 0xc97a63
+      },
+      patty_cooked: {
+        id: "patty_cooked",
+        name: "Жареная котлета",
+        icon: "🍖",
+        zone: "Плита",
+        color: 0x5c2c16
+      },
+      cheese: {
+        id: "cheese",
+        name: "Сыр чеддер",
+        icon: "🧀",
+        zone: "Холодильник",
+        color: 0xffc837
+      },
+      lettuce: {
+        id: "lettuce",
+        name: "Лист салата",
+        icon: "🥬",
+        zone: "Холодильник",
+        color: 0x4caf50
+      },
+      tomato: {
+        id: "tomato",
+        name: "Томат",
+        icon: "🍅",
+        zone: "Холодильник",
+        color: 0xe53935
+      },
+      bun_top: {
+        id: "bun_top",
+        name: "Верхняя булка",
+        icon: "🍔",
+        zone: "Холодильник",
+        color: 0xe0a458
+      }
+    };
+
+    const ORDER_RECIPES = [
+      {
+        title: "Классический бургер",
+        reward: 350,
+        items: ["bun_bottom", "patty_cooked", "cheese", "bun_top"]
+      },
+      {
+        title: "Свежий бургер с томатом",
+        reward: 420,
+        items: ["bun_bottom", "patty_cooked", "lettuce", "tomato", "bun_top"]
+      },
+      {
+        title: "Двойной сырный бургер",
+        reward: 500,
+        items: ["bun_bottom", "patty_cooked", "cheese", "cheese", "bun_top"]
+      },
+      {
+        title: "Полный шеф-бургер",
+        reward: 600,
+        items: ["bun_bottom", "patty_cooked", "cheese", "lettuce", "tomato", "bun_top"]
+      }
+    ];
+
+    function showToast(text) {
+      const container = document.getElementById("toast-container");
+      const el = document.createElement("div");
+      el.className = "toast";
+      el.textContent = text;
+      container.appendChild(el);
+      setTimeout(() => {
+        el.remove();
+      }, 2400);
+    }
+
+    function generateNewOrder() {
+      const recipe = ORDER_RECIPES[(GAME_STATE.orderNumber - 1) % ORDER_RECIPES.length];
+      GAME_STATE.currentOrder = {
+        title: recipe.title,
+        reward: recipe.reward,
+        items: [...recipe.items]
+      };
+      updateHudUI();
+    }
+
+    function updateHudUI() {
+      document.getElementById("money-val").textContent = GAME_STATE.money;
+      document.getElementById("sold-val").textContent = GAME_STATE.soldCount;
+      document.getElementById("order-num").textContent = GAME_STATE.orderNumber;
+
+      if (GAME_STATE.currentOrder) {
+        document.getElementById("order-desc").textContent = GAME_STATE.currentOrder.title;
+        document.getElementById("order-reward").textContent = `+${GAME_STATE.currentOrder.reward} ₽`;
+
+        const listEl = document.getElementById("order-list");
+        listEl.innerHTML = "";
+
+        // Копия собранных элементов для подсветки совпадений
+        const remainingPlate = [...GAME_STATE.assemblyPlate];
+        GAME_STATE.currentOrder.items.forEach((reqId) => {
+          const idx = remainingPlate.indexOf(reqId);
+          const isDone = idx !== -1;
+          if (isDone) remainingPlate.splice(idx, 1);
+
+          const tag = document.createElement("span");
+          tag.className = `ing-tag ${isDone ? "done" : ""}`;
+          const info = INGREDIENTS_CATALOG[reqId];
+          tag.textContent = info ? `${info.icon} ${info.name}` : reqId;
+          listEl.appendChild(tag);
+        });
+      }
+
+      const handEl = document.getElementById("hand-status");
+      if (!GAME_STATE.heldItem) {
+        handEl.textContent = "В руках: пусто";
+      } else if (GAME_STATE.heldItem === "assembled_burger") {
+        handEl.textContent = "В руках: 🍔 Готовый бургер (неси к выходу!)";
+      } else {
+        const info = INGREDIENTS_CATALOG[GAME_STATE.heldItem];
+        handEl.textContent = `В руках: ${info ? info.icon + " " + info.name : GAME_STATE.heldItem}`;
+      }
+    }
+
+    function refreshAssemblyVisuals() {
+      while (assemblyVisualGroup.children.length > 0) {
+        assemblyVisualGroup.remove(assemblyVisualGroup.children[0]);
+      }
+
+      GAME_STATE.assemblyPlate.forEach((ingId, layerIdx) => {
+        const info = INGREDIENTS_CATALOG[ingId];
+        const yPos = 0.012 + layerIdx * 0.022;
+        const layerMesh = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.068, 0.072, 0.018, 18),
+          new THREE.MeshStandardMaterial({ color: info ? info.color : 0xffffff, roughness: 0.6 })
+        );
+        layerMesh.position.y = yPos;
+        layerMesh.castShadow = true;
+        assemblyVisualGroup.add(layerMesh);
+      });
+    }
+
+    function openFridgeModal() {
+      const modal = document.getElementById("fridge-modal");
+      const grid = document.getElementById("fridge-items-container");
+      grid.innerHTML = "";
+
+      const fridgePickables = [
+        "bun_bottom",
+        "patty_raw",
+        "cheese",
+        "lettuce",
+        "tomato",
+        "bun_top"
+      ];
+
+      fridgePickables.forEach((id) => {
+        const item = INGREDIENTS_CATALOG[id];
+        const card = document.createElement("div");
+        card.className = "fridge-item";
+        card.innerHTML = `
+          <span class="icon">${item.icon}</span>
+          <span class="name">${item.name}</span>
+          <span class="zone-label">${item.zone}</span>
+        `;
+        card.addEventListener("click", () => {
+          if (GAME_STATE.heldItem) {
+            showToast("Сначала освободи руки (или нажми «СБРОС»)");
+            return;
+          }
+          GAME_STATE.heldItem = item.id;
+          updateHudUI();
+          closeFridgeModal();
+          showToast(`Взял: ${item.name}`);
+        });
+        grid.appendChild(card);
+      });
+
+      modal.classList.add("open");
+    }
+
+    function closeFridgeModal() {
+      document.getElementById("fridge-modal").classList.remove("open");
+    }
+
+    function handleStoveInteraction(burnerIdx) {
+      const slot = GAME_STATE.stoveSlots[burnerIdx];
+      const vis = stoveVisuals[burnerIdx];
+
+      // Если конфорка свободна и в руках сырая котлета — ставим жариться
+      if (!slot) {
+        if (GAME_STATE.heldItem === "patty_raw") {
+          GAME_STATE.heldItem = null;
+          GAME_STATE.stoveSlots[burnerIdx] = {
+            progress: 0,
+            cookDuration: 4.5, // 4.5 сек до полной прожарки
+            state: "cooking" // "cooking" | "ready" | "burnt"
+          };
+          vis.pattyMesh.visible = true;
+          vis.pattyMesh.material.color.setHex(0xc97a63);
+          vis.ring.material.color.setHex(0xff5400);
+          updateHudUI();
+          showToast("Котлета жарится на плите...");
+        } else {
+          showToast("Возьми сырую котлету из морозильника");
+        }
+        return;
+      }
+
+      // Если котлета уже готова — забираем в руки
+      if (slot.state === "ready") {
+        if (GAME_STATE.heldItem) {
+          showToast("Руки заняты!");
+          return;
+        }
+        GAME_STATE.stoveSlots[burnerIdx] = null;
+        GAME_STATE.heldItem = "patty_cooked";
+        vis.pattyMesh.visible = false;
+        vis.ring.material.color.setHex(0x444444);
+        updateHudUI();
+        showToast("Снял готовую котлету!");
+        return;
+      }
+
+      if (slot.state === "burnt") {
+        GAME_STATE.stoveSlots[burnerIdx] = null;
+        vis.pattyMesh.visible = false;
+        vis.ring.material.color.setHex(0x444444);
+        showToast("Выкинул сгоревшую котлету");
+        return;
+      }
+
+      showToast("Котлета ещё жарится, подожди пару секунд");
+    }
+
+    function handleBoardInteraction() {
+      // Если на доске уже собран бургер и руки свободны — забираем готовый бургер
+      if (GAME_STATE.assemblyPlate.length > 0 && !GAME_STATE.heldItem) {
+        const lastItem = GAME_STATE.assemblyPlate[GAME_STATE.assemblyPlate.length - 1];
+        if (lastItem === "bun_top" && GAME_STATE.assemblyPlate.length >= 3) {
+          GAME_STATE.assemblyPlate = [];
+          refreshAssemblyVisuals();
+          GAME_STATE.heldItem = "assembled_burger";
+          updateHudUI();
+          showToast("Бургер собран! Неси его к выходу");
+          return;
+        }
+      }
+
+      // Кладём ингредиент из рук на доску
+      if (!GAME_STATE.heldItem) {
+        showToast("Возьми ингредиент в руки");
+        return;
+      }
+
+      if (GAME_STATE.heldItem === "assembled_burger") {
+        showToast("Бургер уже собран, неси к выходу!");
+        return;
+      }
+
+      if (GAME_STATE.heldItem === "patty_raw") {
+        showToast("Сначала пожарь котлету на плите!");
+        return;
+      }
+
+      if (GAME_STATE.assemblyPlate.length === 0 && GAME_STATE.heldItem !== "bun_bottom") {
+        showToast("Начинай сборку с нижней булки!");
+        return;
+      }
+
+      GAME_STATE.assemblyPlate.push(GAME_STATE.heldItem);
+      const placedName = INGREDIENTS_CATALOG[GAME_STATE.heldItem]?.name || "ингредиент";
+      GAME_STATE.heldItem = null;
+      refreshAssemblyVisuals();
+      updateHudUI();
+      showToast(`Добавил: ${placedName}`);
+    }
+
+    function handleSaleInteraction() {
+      if (GAME_STATE.heldItem !== "assembled_burger") {
+        showToast("Принеси сюда готовый бургер, чтобы продать");
+        return;
+      }
+
+      const reward = GAME_STATE.currentOrder ? GAME_STATE.currentOrder.reward : 350;
+      GAME_STATE.money += reward;
+      GAME_STATE.soldCount += 1;
+      GAME_STATE.orderNumber += 1;
+      GAME_STATE.heldItem = null;
+
+      generateNewOrder();
+      updateHudUI();
+      showToast(`Продано! +${reward} ₽`);
+    }
+
+    function updateCookingSlots(dt) {
+      for (let i = 0; i < GAME_STATE.stoveSlots.length; i++) {
+        const slot = GAME_STATE.stoveSlots[i];
+        const vis = stoveVisuals[i];
+        if (!slot || !vis) continue;
+
+        slot.progress += dt;
+
+        if (slot.state === "cooking") {
+          const ratio = Math.min(slot.progress / slot.cookDuration, 1);
+          // Плавный переход от сырого розового к поджаристому коричневому
+          const color = new THREE.Color().lerpColors(
+            new THREE.Color(0xc97a63),
+            new THREE.Color(0x5c2c16),
+            ratio
+          );
+          vis.pattyMesh.material.color.copy(color);
+
+          if (ratio >= 1) {
+            slot.state = "ready";
+            vis.ring.material.color.setHex(0x2ec4b6);
+            showToast(`Котлета на конфорке ${i + 1} готова!`);
+          }
+        } else if (slot.state === "ready") {
+          // Если передержать больше 8 сек после готовности — сгорит
+          if (slot.progress > slot.cookDuration + 8.0) {
+            slot.state = "burnt";
+            vis.pattyMesh.material.color.setHex(0x1c1917);
+            vis.ring.material.color.setHex(0xe71d36);
+            showToast(`Котлета на конфорке ${i + 1} сгорела!`);
+          }
+        }
+      }
+    }
