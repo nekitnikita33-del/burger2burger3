@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="screen-orientation" content="landscape" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Burger Kitchen 3D — Моя Кухня</title>
+
+  <!-- ================= [SECTION 01: STYLES & MOBILE LANDSCAPE UI] ================= -->
+  <style>
+    :root {
+      --bg-dark: #0f1115;
+      --panel-bg: rgba(18, 20, 26, 0.78);
+      --panel-border: rgba(255, 255, 255, 0.14);
+      --accent: #ff9f1c;
+      --accent-hover: #ffbf69;
+      --success: #2ec4b6;
+      --danger: #e71d36;
+      --text-main: #f5f7fa;
+      --text-muted: #9aa5b1;
+      --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      font-family: var(--font-ui);
+      color: var(--text-main);
+    }
+
+    #game-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      z-index: 1;
+    }
+
+    /* Предупреждение о портретной ориентации */
+    #rotate-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: #0d0f13;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+    }
+
+    #rotate-overlay .phone-icon {
+      width: 64px;
+      height: 110px;
+      border: 3px solid var(--accent);
+      border-radius: 12px;
+      margin-bottom: 20px;
+      animation: rotatePhone 2s ease-in-out infinite;
+    }
+
+    @keyframes rotatePhone {
+      0%, 20% { transform: rotate(0deg); }
+      50%, 80% { transform: rotate(-90deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+    @media screen and (orientation: portrait) and (max-width: 900px) {
+      #rotate-overlay {
+        display: flex;
+      }
+    }
+
+    /* Экран старта / загрузки */
+    #start-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: radial-gradient(circle at center, rgba(28, 32, 42, 0.92), rgba(10, 12, 16, 0.98));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      backdrop-filter: blur(8px);
+      transition: opacity 0.4s ease;
+    }
+
+    #start-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .start-card {
+      max-width: 520px;
+      width: 100%;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      padding: 26px 30px;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    }
+
+    .start-title {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      color: var(--accent);
+    }
+
+    .start-subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+
+    .controls-hint {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 22px;
+      text-align: left;
+      font-size: 12px;
+    }
+
+    .hint-item {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .hint-item strong {
+      display: block;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+
+    #btn-start {
+      width: 100%;
+      padding: 14px 24px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #111;
+      background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(255, 159, 28, 0.35);
+      transition: transform 0.15s ease;
+    }
+
+    #btn-start:active {
+      transform: scale(0.97);
+    }
+
+    /* Основной игровой HUD */
+    #hud {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    /* Верхняя панель статистики */
+    .hud-top {
+      position: absolute;
+      top: 12px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .hud-box {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 8px 14px;
+      backdrop-filter: blur(6px);
+      pointer-events: auto;
+    }
+
+    .stats-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .stat-money {
+      color: var(--success);
+      font-size: 16px;
+    }
+
+    .stat-orders {
+      color: var(--accent);
+    }
+
+    /* Карточка текущего заказа */
+    .order-card {
+      max-width: 310px;
+      font-size: 12px;
+    }
+
+    .order-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .order-ingredients {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .ing-tag {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-size: 11px;
+      color: #fff;
+    }
+
+    .ing-tag.done {
+      background: rgba(46, 196, 182, 0.25);
+      color: var(--success);
+      text-decoration: line-through;
+    }
+
+    /* Прицел в центре экрана */
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 10px;
+      height: 10px;
+      transform: translate(-50%, -50%);
+      border: 2px solid rgba(255, 255, 255, 0.8);
+      border-radius: 50%;
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    #crosshair.active {
+      transform: translate(-50%, -50%) scale(1.6);
+      border-color: var(--accent);
+      background: rgba(255, 159, 28, 0.35);
+    }
+
+    /* Подсказка при наведении на объект */
+    #interaction-prompt {
+      position: absolute;
+      top: calc(50% + 22px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(12, 14, 18, 0.85);
+      border: 1px solid var(--accent);
+      color: #fff;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    #interaction-prompt.visible {
+      opacity: 1;
+    }
+
+    /* Отображение предмета в руках игрока */
+    #hand-status {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      padding: 7px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    /* Всплывающие уведомления */
+    #toast-container {
+      position: absolute;
+      top: 66px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      z-index: 30;
+    }
+
+    .toast {
+      background: rgba(15, 18, 24, 0.92);
+      border-left: 4px solid var(--accent);
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      animation: fadeSlideDown 0.25s ease;
+    }
+
+    @keyframes fadeSlideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Сенсорное управление для телефона */
+    #joystick-zone {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+      border: 2px solid rgba(255, 255, 255, 0.16);
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #joystick-knob {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: rgba(255, 159, 28, 0.75);
+      border: 2px solid #fff;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      transform: translate(0px, 0px);
+    }
+
+    /* Правая зона для вращения камеры пальцем */
+    #look-zone {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 55%;
+      height: 100%;
+      pointer-events: auto;
+      z-index: 5;
+    }
+
+    /* Кнопки действий справа */
+    .action-buttons {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 15;
+      pointer-events: auto;
+    }
+
+    .btn-action {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      background: rgba(255, 159, 28, 0.85);
+      color: #111;
+      font-size: 12px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+    }
+
+    .btn-action:active {
+      transform: scale(0.92);
+    }
+
+    .btn-action.secondary {
+      width: 52px;
+      height: 52px;
+      background: rgba(231, 29, 54, 0.82);
+      color: #fff;
+      font-size: 11px;
+      align-self: flex-end;
+    }
+
+    /* Модальное окно холодильника / морозильника */
+    #fridge-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(8, 10, 14, 0.75);
+      backdrop-filter: blur(5px);
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      pointer-events: auto;
+    }
+
+    #fridge-modal.open {
+      display: flex;
+    }
+
+    .fridge-window {
+      background: #171a21;
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 560px;
+      padding: 18px 20px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+    }
+
+    .fridge-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .fridge-header h3 {
+      font-size: 16px;
+      color: var(--accent);
+    }
+
+    #btn-close-fridge {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-weight: 700;
+    }
+
+    .fridge-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .fridge-item {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 12px 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+
+    .fridge-item:active {
+      transform: scale(0.96);
+      background: rgba(255, 159, 28, 0.25);
+    }
+
+    .fridge-item .icon {
+      font-size: 24px;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .fridge-item .name {
+      font-size: 13px;
+      font-weight: 700;
+      display: block;
+    }
+
+    .fridge-item .zone-label {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ================= [SECTION 02: HTML DOM STRUCTURE] ================= -->
+  <div id="rotate-overlay">
+    <div class="phone-icon"></div>
+    <h2>Поверни телефон горизонтально</h2>
+    <p style="color: #9aa5b1; margin-top: 8px; font-size: 14px;">Игра работает в альбомном режиме от 1-го лица</p>
+  </div>
+
+  <div id="start-screen">
+    <div class="start-card">
+      <div class="start-title">BURGER KITCHEN 3D</div>
+      <div class="start-subtitle">
+        Воссозданная 3D-кухня. Бери продукты в чёрном холодильнике в конце комнаты, жарь котлеты на плите, собирай бургеры и продавай их у выхода.
+      </div>
+      <div class="controls-hint">
+        <div class="hint-item">
+          <strong>Левый стик / WASD</strong>
+          Перемещение по кухне
+        </div>
+        <div class="hint-item">
+          <strong>Правая часть экрана / Мышь</strong>
+          Осмотр по сторонам
+        </div>
+        <div class="hint-item">
+          <strong>Кнопка «ДЕЙСТВИЕ» / E</strong>
+          Открыть холодильник, жарить, собрать
+        </div>
+        <div class="hint-item">
+          <strong>Кнопка «СБРОС» / Q</strong>
+          Выкинуть предмет из рук
+        </div>
+      </div>
+      <button id="btn-start">НАЧАТЬ СМЕНУ</button>
+    </div>
+  </div>
+
+  <canvas id="game-canvas"></canvas>
+
+  <div id="hud">
+    <div class="hud-top">
+      <div class="hud-box">
+        <div class="stats-row">
+          <div class="stat-money">₽ <span id="money-val">0</span></div>
+          <div class="stat-orders">Продано: <span id="sold-val">0</span></div>
+        </div>
+      </div>
+
+      <div class="hud-box order-card">
+        <div class="order-header">
+          <span>ТЕКУЩИЙ ЗАКАЗ #<span id="order-num">1</span></span>
+          <span id="order-reward">+350 ₽</span>
+        </div>
+        <div id="order-desc" style="color: #cbd2d9;">Классический бургер</div>
+        <div class="order-ingredients" id="order-list"></div>
+      </div>
+    </div>
+
+    <div id="toast-container"></div>
+    <div id="crosshair"></div>
+    <div id="interaction-prompt">Нажмите «ДЕЙСТВИЕ»</div>
+    <div id="hand-status">В руках: пусто</div>
+
+    <div id="joystick-zone">
+      <div id="joystick-knob"></div>
+    </div>
+
+    <div id="look-zone"></div>
+
+    <div class="action-buttons">
+      <button class="btn-action secondary" id="btn-drop">СБРОС</button>
+      <button class="btn-action" id="btn-interact">ДЕЙСТВИЕ</button>
+    </div>
+  </div>
+
+  <!-- Модальное окно чёрного холодильника / морозильника -->
+  <div id="fridge-modal">
+    <div class="fridge-window">
+      <div class="fridge-header">
+        <h3>Чёрный холодильник и морозильник</h3>
+        <button id="btn-close-fridge">Закрыть ✕</button>
+      </div>
+      <div class="fridge-grid" id="fridge-items-container"></div>
+    </div>
+  </div>
+
+  <!-- Подключение Three.js r128 с CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <script>
+    "use strict";
+
+    // ================= [SECTION 03: GLOBAL CONFIG & DIMENSIONS] =================
+    // Все размеры в метрах, подогнаны под реальную кухню с фотографий
+    const ROOM_CONFIG = {
+      width: 3.15,          // Ширина кухни (от левой стены со столом до правой стены с гарнитуром)
+      length: 5.35,         // Длина кухни (от выхода до штор)
+      height: 2.72,         // Высота потолка
+      playerHeight: 1.68,   // Реалистичный рост игрока (уровень глаз)
+      playerRadius: 0.28,   // Компактный радиус коллизии, чтобы удобно проходить мимо барного выступа и стульев
+      moveSpeed: 2.65,      // Скорость ходьбы (м/с)
+      lookSensitivity: 0.0042,
+      interactDistance: 2.15
+    };
+
+    // Координаты системы:
+    // X: от -1.575 (левая стена у стола и дивана) до +1.575 (правая стена вдоль кухонного гарнитура)
+    // Y: от 0 (пол) до 2.72 (потолок)
+    // Z: от -2.675 (стена со шторами) до +2.675 (стена с дверным проёмом выхода)
+
+    const GAME_STATE = {
+      started: false,
+      money: 0,
+      soldCount: 0,
+      orderNumber: 1,
+      currentOrder: null,
+      heldItem: null,         // Что сейчас в руках игрока
+      assemblyPlate: [],      // Ингредиенты, выложенные на разделочной доске
+      stoveSlots: [null, null], // Две активные конфорки плиты
+      interactTarget: null,   // Текущий объект в прицеле
+      colliders: [],          // Список AABB-препятствий (minX, maxX, minZ, maxZ)
+      interactiveObjects: []  // Меши, с которыми можно взаимодействовать
+    };
+
+    // ================= [SECTION 04: CORE THREE.JS SCENE & RENDERER] =================
+    const canvas = document.getElementById("game-canvas");
+    const renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      antialias: true,
+      powerPreference: "high-performance"
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x14161b);
+    scene.fog = new THREE.FogExp2(0x14161b, 0.035);
+
+    const camera = new THREE.PerspectiveCamera(
+      68,
+      window.innerWidth / window.innerHeight,
+      0.08,
+      30
+    );
+    // Стартовая позиция игрока ближе к центру/выходу лицом вглубь кухни
+    camera.position.set(-0.25, ROOM_CONFIG.playerHeight, 1.45);
+    camera.rotation.order = "YXZ";
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ================= [SECTION 05: PROCEDURAL TEXTURE GENERATOR] =================
+    // Генерация реалистичных текстур ламината, мрамора, штукатурки и ткани без внешних картинок
+    const TextureFactory = {
+      createLaminateTexture() {
+        const c = document.createElement("canvas");
+        c.width = 1024;
+        c.height = 1024;
+        const ctx = c.getContext("2d");
+
+        ctx.fillStyle = "#5a4230";
+        ctx.fillRect(0, 0, 1024, 1024);
+
+        const planks = 8;
+        const plankW = 1024 / planks;
+
+        for (let i = 0; i < planks; i++) {
+          const x = i * plankW;
+          const shade = 68 + Math.floor(Math.random() * 24);
+          ctx.fillStyle = `rgb(${shade + 22}, ${shade}, ${Math.floor(shade * 0.72)})`;
+          ctx.fillRect(x + 1, 0, plankW - 2, 1024);
+
+          // Волокна дерева
+          for (let g = 0; g < 90; g++) {
+            const gx = x + Math.random() * plankW;
+            ctx.strokeStyle = Math.random() > 0.5
+              ? "rgba(35, 22, 12, 0.16)"
+              : "rgba(145, 110, 78, 0.12)";
+            ctx.lineWidth = 1 + Math.random() * 2;
+            ctx.beginPath();
+            ctx.moveTo(gx, 0);
+            ctx.bezierCurveTo(
+              gx + (Math.random() - 0.5) * 14, 340,
+              gx + (Math.random() - 0.5) * 14, 680,
+              gx, 1024
+            );
+            ctx.stroke();
+          }
+
+          // Стыки досок по длине
+          const jointY = ((i * 317) % 700) + 150;
+          ctx.fillStyle = "rgba(25, 16, 10, 0.55)";
+          ctx.fillRect(x, jointY, plankW, 3);
+          ctx.fillRect(x, 0, 2, 1024);
+        }
+
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(2.2, 3.6);
+        tex.encoding = THREE.sRGBEncoding;
+        return tex;
+      },
+
+      createPlasterWallTexture() {
+        const c = document.createElement("canvas");
+        c.width = 512;
+        c.height = 512;
+        const ctx = c.getContext("2d");
+
+        ctx.fillStyle = "#cfc9be";
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Декоративная штукатурка как на стенах с фото
+        for (let i = 0; i < 1800; i++) {
+          const x = Math.random() * 512;
+          const y = Math.random() * 512;
+          const r = 4 + Math.random() * 18;
+          ctx.fillStyle = Math.random() > 0.5
+            ? "rgba(245, 242, 235, 0.08)"
+            : "rgba(155, 148, 138, 0.08)";
+          ctx.beginPath();
+          ctx.ellipse(x, y, r, r * 0.55, Math.random() * Math.PI, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(3, 2);
+        tex.encoding = THREE.sRGBEncoding;
+        return tex;
+      },
+
+      createMarbleBacksplashTexture() {
+        const c = document.createElement("canvas");
+        c.width = 1024;
+        c.height = 512;
+        const ctx = c.getContext("2d");
+
+        // Тёмно-серый мраморный фартук с бежево-белыми прожилками
+        const grad = ctx.createLinearGradient(0, 0, 1024, 512);
+        grad.addColorStop(0, "#4b4744");
+        grad.addColorStop(0.5, "#5c5652");
+        grad.addColorStop(1, "#3f3b38");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 1024, 512);
+
+        for (let v = 0; v < 22; v++) {
+          ctx.strokeStyle = v % 3 === 0
+            ? "rgba(235, 222, 208, 0.28)"
+            : "rgba(30, 28, 27, 0.24)";
+          ctx.lineWidth = 0.8 + Math.random() * 2.2;
+          ctx.beginPath();
+          let px = Math.random() * 1024;
+          let py = Math.random() * 512;
+          ctx.moveTo(px, py);
+          for (let s = 0; s < 10; s++) {
+            px += (Math.random() - 0.3) * 140;
+            py += (Math.random() - 0.45) * 90;
+            ctx.lineTo(px, py);
+          }
+          ctx.stroke();
+        }
+
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.encoding = THREE.sRGBEncoding;
+        return tex;
+      },
+
+      createCurtainTexture() {
+        const c = document.createElement("canvas");
+        c.width = 512;
+        c.height = 512;
+        const ctx = c.getContext("2d");
+
+        const folds = 16;
+        const step = 512 / folds;
+        for (let i = 0; i < folds; i++) {
+          const x = i * step;
+          const g = ctx.createLinearGradient(x, 0, x + step, 0);
+          g.addColorStop(0, "#756d63");
+          g.addColorStop(0.35, "#a89f93");
+          g.addColorStop(0.7, "#8b8277");
+          g.addColorStop(1, "#665e55");
+          ctx.fillStyle = g;
+          ctx.fillRect(x, 0, step + 1, 512);
+        }
+
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.ClampToEdgeWrapping;
+        tex.repeat.set(2, 1);
+        tex.encoding = THREE.sRGBEncoding;
+        return tex;
+      },
+
+      createDarkWoodTexture() {
+        const c = document.createElement("canvas");
+        c.width = 512;
+        c.height = 512;
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#2b211b";
+        ctx.fillRect(0, 0, 512, 512);
+
+        for (let i = 0; i < 120; i++) {
+          ctx.strokeStyle = "rgba(15, 10, 8, 0.28)";
+          ctx.lineWidth = 1.5;
+          const y = Math.random() * 512;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(512, y + (Math.random() - 0.5) * 10);
+          ctx.stroke();
+        }
+
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.encoding = THREE.sRGBEncoding;
+        return tex;
+      }
+    };
+
+    // ================= [SECTION 06: COLLISION & INTERACTION HELPERS] =================
+    function addBoxCollider(centerX, centerZ, sizeX, sizeZ, label = "") {
+      GAME_STATE.colliders.push({
+        minX: centerX - sizeX / 2,
+        maxX: centerX + sizeX / 2,
+        minZ: centerZ - sizeZ / 2,
+        maxZ: centerZ + sizeZ / 2,
+        label
+      });
+    }
+
+    function registerInteractive(mesh, type, title, actionFn) {
+      mesh.userData.interactive = true;
+      mesh.userData.interactType = type;
+      mesh.userData.interactTitle = title;
+      mesh.userData.onInteract = actionFn;
+      GAME_STATE.interactiveObjects.push(mesh);
+    }
+
+    // ================= [SECTION 07: ROOM ARCHITECTURE & LIGHTING] =================
+    function buildKitchenArchitecture() {
+      const kitchenGroup = new THREE.Group();
+      kitchenGroup.name = "KitchenArchitecture";
+
+      const halfW = ROOM_CONFIG.width / 2;
+      const halfL = ROOM_CONFIG.length / 2;
+      const H = ROOM_CONFIG.height;
+
+      // Материалы комнаты
+      const floorMat = new THREE.MeshStandardMaterial({
+        map: TextureFactory.createLaminateTexture(),
+        roughness: 0.42,
+        metalness: 0.05
+      });
+
+      const wallMat = new THREE.MeshStandardMaterial({
+        map: TextureFactory.createPlasterWallTexture(),
+        roughness: 0.85,
+        metalness: 0.02
+      });
+
+      const ceilingMat = new THREE.MeshStandardMaterial({
+        color: 0xe8e8e6,
+        roughness: 0.9
+      });
+
+      const baseboardMat = new THREE.MeshStandardMaterial({
+        color: 0x46392f,
+        roughness: 0.6
+      });
+
+      // 1. Пол (ламинат)
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(ROOM_CONFIG.width, ROOM_CONFIG.length),
+        floorMat
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      kitchenGroup.add(floor);
+
+      // 2. Потолок
+      const ceiling = new THREE.Mesh(
+        new THREE.PlaneGeometry(ROOM_CONFIG.width, ROOM_CONFIG.length),
+        ceilingMat
+      );
+      ceiling.rotation.x = Math.PI / 2;
+      ceiling.position.y = H;
+      kitchenGroup.add(ceiling);
+
+      // 3. Левая стена (X = -halfW) — вдоль стола и дивана
+      const leftWall = new THREE.Mesh(
+        new THREE.PlaneGeometry(ROOM_CONFIG.length, H),
+        wallMat
+      );
+      leftWall.rotation.y = Math.PI / 2;
+      leftWall.position.set(-halfW, H / 2, 0);
+      leftWall.receiveShadow = true;
+      kitchenGroup.add(leftWall);
+
+      // 4. Правая стена (X = +halfW) — вдоль гарнитура
+      const rightWall = new THREE.Mesh(
+        new THREE.PlaneGeometry(ROOM_CONFIG.length, H),
+        wallMat
+      );
+      rightWall.rotation.y = -Math.PI / 2;
+      rightWall.position.set(halfW, H / 2, 0);
+      rightWall.receiveShadow = true;
+      kitchenGroup.add(rightWall);
+
+      // 5. Дальняя стена за шторами (Z = -halfL)
+      const backWall = new THREE.Mesh(
+        new THREE.PlaneGeometry(ROOM_CONFIG.width, H),
+        wallMat
+      );
+      backWall.position.set(0, H / 2, -halfL);
+      kitchenGroup.add(backWall);
+
+      // 6. Плотные шторы от потолка до пола (Z = -halfL + 0.08)
+      const curtainMat = new THREE.MeshStandardMaterial({
+        map: TextureFactory.createCurtainTexture(),
+        roughness: 0.88
+      });
+      const leftCurtain = new THREE.Mesh(
+        new THREE.BoxGeometry(ROOM_CONFIG.width * 0.495, H - 0.02, 0.09),
+        curtainMat
+      );
+      leftCurtain.position.set(-ROOM_CONFIG.width * 0.25, H / 2, -halfL + 0.07);
+      leftCurtain.castShadow = true;
+      leftCurtain.receiveShadow = true;
+      kitchenGroup.add(leftCurtain);
+
+      const rightCurtain = new THREE.Mesh(
+        new THREE.BoxGeometry(ROOM_CONFIG.width * 0.495, H - 0.02, 0.09),
+        curtainMat
+      );
+      rightCurtain.position.set(ROOM_CONFIG.width * 0.25, H / 2, -halfL + 0.07);
+      rightCurtain.castShadow = true;
+      rightCurtain.receiveShadow = true;
+      kitchenGroup.add(rightCurtain);
+
+      // 7. Стена выхода (Z = +halfL) с дверным проёмом и серым наличником как на 2-м фото
+      const doorWidth = 0.96;
+      const doorHeight = 2.12;
+      const doorCenterX = -0.18;
+
+      const leftExitWidth = (doorCenterX - doorWidth / 2) - (-halfW);
+      const rightExitWidth = halfW - (doorCenterX + doorWidth / 2);
+
+      const exitWallLeft = new THREE.Mesh(
+        new THREE.BoxGeometry(leftExitWidth, H, 0.14),
+        wallMat
+      );
+      exitWallLeft.position.set(-halfW + leftExitWidth / 2, H / 2, halfL + 0.06);
+      exitWallLeft.receiveShadow = true;
+      kitchenGroup.add(exitWallLeft);
+
+      const exitWallRight = new THREE.Mesh(
+        new THREE.BoxGeometry(rightExitWidth, H, 0.14),
+        wallMat
+      );
+      exitWallRight.position.set(halfW - rightExitWidth / 2, H / 2, halfL + 0.06);
+      exitWallRight.receiveShadow = true;
+      kitchenGroup.add(exitWallRight);
+
+      const exitWallTop = new THREE.Mesh(
+        new THREE.BoxGeometry(doorWidth, H - doorHeight, 0.14),
+        wallMat
+      );
+      exitWallTop.position.set(doorCenterX, doorHeight + (H - doorHeight) / 2, halfL + 0.06);
+      kitchenGroup.add(exitWallTop);
+
+      // Серый дверной наличник
+      const trimMat = new THREE.MeshStandardMaterial({ color: 0x7b7d80, roughness: 0.55 });
+      const trimLeft = new THREE.Mesh(new THREE.BoxGeometry(0.08, doorHeight, 0.03), trimMat);
+      trimLeft.position.set(doorCenterX - doorWidth / 2 - 0.03, doorHeight / 2, halfL - 0.01);
+      kitchenGroup.add(trimLeft);
+
+      const trimRight = new THREE.Mesh(new THREE.BoxGeometry(0.08, doorHeight, 0.03), trimMat);
+      trimRight.position.set(doorCenterX + doorWidth / 2 + 0.03, doorHeight / 2, halfL - 0.01);
+      kitchenGroup.add(trimRight);
+
+      const trimTop = new THREE.Mesh(new THREE.BoxGeometry(doorWidth + 0.14, 0.08, 0.03), trimMat);
+      trimTop.position.set(doorCenterX, doorHeight + 0.03, halfL - 0.01);
+      kitchenGroup.add(trimTop);
+
+      // Затемнённый коридор за проёмом (визуальная глубина, но проход закрыт невидимой границей)
+      const hallBackdrop = new THREE.Mesh(
+        new THREE.BoxGeometry(1.8, H, 1.4),
+        new THREE.MeshStandardMaterial({ color: 0x16171a, roughness: 0.9, side: THREE.BackSide })
+      );
+      hallBackdrop.position.set(doorCenterX, H / 2, halfL + 0.78);
+      kitchenGroup.add(hallBackdrop);
+
+      // Плинтусы по периметру
+      const bbL = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.07, ROOM_CONFIG.length), baseboardMat);
+      bbL.position.set(-halfW + 0.01, 0.035, 0);
+      kitchenGroup.add(bbL);
+
+      const bbR = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.07, ROOM_CONFIG.length), baseboardMat);
+      bbR.position.set(halfW - 0.01, 0.035, 0);
+      kitchenGroup.add(bbR);
+
+      // Выключатели и розетки у дверного проёма как на фото
+      const switchMat = new THREE.MeshStandardMaterial({ color: 0x1e2024, roughness: 0.4 });
+      const swLeft = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.085, 0.015), switchMat);
+      swLeft.position.set(doorCenterX - doorWidth / 2 - 0.22, 0.95, halfL - 0.01);
+      kitchenGroup.add(swLeft);
+
+      const swRight = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.085, 0.015), switchMat);
+      swRight.position.set(doorCenterX + doorWidth / 2 + 0.20, 0.95, halfL - 0.01);
+      kitchenGroup.add(swRight);
+
+      // 8. Освещение кухни (тёплый подвес над столом + трековые споты + точечные светильники)
+      const ambientLight = new THREE.AmbientLight(0xfff4e6, 0.46);
+      scene.add(ambientLight);
+
+      // Подвесной светильник над обеденным столом
+      const cord = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.006, 0.006, 0.72, 8),
+        new THREE.MeshStandardMaterial({ color: 0x111111 })
+      );
+      cord.position.set(-0.92, H - 0.36, -1.25);
+      kitchenGroup.add(cord);
+
+      const lampShade = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.04, 0.16, 0.07, 20),
+        new THREE.MeshStandardMaterial({ color: 0x222222, emissive: 0xffd27d, emissiveIntensity: 0.4 })
+      );
+      lampShade.position.set(-0.92, H - 0.73, -1.25);
+      kitchenGroup.add(lampShade);
+
+      const tableLight = new THREE.PointLight(0xffe2b0, 1.15, 5.5, 1.4);
+      tableLight.position.set(-0.92, H - 0.80, -1.25);
+      tableLight.castShadow = true;
+      tableLight.shadow.mapSize.set(1024, 1024);
+      tableLight.shadow.bias = -0.001;
+      scene.add(tableLight);
+
+      // Трековая шина на потолке с чёрными спотами
+      const trackMat = new THREE.MeshStandardMaterial({ color: 0x18191c, roughness: 0.35, metalness: 0.6 });
+      const trackRail = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 2.8), trackMat);
+      trackRail.position.set(0.32, H - 0.015, -0.2);
+      kitchenGroup.add(trackRail);
+
+      const spotPositionsZ = [-1.35, -0.45, 0.55, 1.05];
+      spotPositionsZ.forEach((sz, idx) => {
+        const spotBody = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.14, 14), trackMat);
+        spotBody.position.set(0.32, H - 0.11, sz);
+        spotBody.rotation.z = idx % 2 === 0 ? -0.45 : 0.35;
+        spotBody.rotation.x = 0.25;
+        kitchenGroup.add(spotBody);
+      });
+
+      const kitchenMainLight = new THREE.PointLight(0xfff8ef, 0.95, 6.5, 1.3);
+      kitchenMainLight.position.set(0.35, H - 0.35, -0.25);
+      scene.add(kitchenMainLight);
+
+      // Точечные встраиваемые светильники ближе к выходу
+      const recessPositions = [
+        [-0.35, 1.45],
+        [-0.85, 1.55],
+        [-0.85, 0.75]
+      ];
+      recessPositions.forEach(([rx, rz]) => {
+        const ring = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.045, 0.045, 0.015, 16),
+          new THREE.MeshStandardMaterial({ color: 0x33363b, emissive: 0xfff2dc, emissiveIntensity: 0.6 })
+        );
+        ring.position.set(rx, H - 0.008, rz);
+        kitchenGroup.add(ring);
+      });
+
+      const exitAreaLight = new THREE.PointLight(0xf6efe6, 0.65, 4.8, 1.4);
+      exitAreaLight.position.set(-0.45, H - 0.3, 1.45);
+      scene.add(exitAreaLight);
+
+      scene.add(kitchenGroup);
+    }
+
+    // ================= [PLACEHOLDER FOR PART 2: FURNITURE, APPLIANCES & INTERACTIVES] =================
+    // Сюда в Части 2 вставим:
+    // [SECTION 08: KITCHEN_CABINETS_AND_FRIDGE]
+    // [SECTION 09: DINING_TABLE_SOFA_AND_TV]
+    // [SECTION 10: BURGER_SYSTEM_AND_ORDERS]
+
+    // ================= [PLACEHOLDER FOR PART 3: PLAYER CONTROLLER, RAYCAST & GAME LOOP] =================
+    // Сюда в Части 3 вставим:
+    // [SECTION 11: TOUCH_AND_KEYBOARD_CONTROLS]
+    // [SECTION 12: COLLISION_PHYSICS_AND_INTERACTION]
+    // [SECTION 13: MAIN_LOOP_AND_BOOT]
+  </script>
+</body>
+</html>
